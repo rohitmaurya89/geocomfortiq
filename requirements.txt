@@ -1,0 +1,23 @@
+# ─── GeoComfortIQ — Python Dependencies ──────────────────────────────────────
+
+# Core framework
+Django==4.2.11
+
+# Image processing
+Pillow
+numpy
+opencv-python
+
+# Machine Learning
+scikit-learn
+
+# HTTP (used in services; stdlib urllib used for API calls — no extra dep needed)
+requests
+
+# ─── Phase 6: Deep Learning (OPTIONAL) ───────────────────────────────────────
+# Uncomment these two lines to enable DeepLabV3 segmentation.
+# App works fully without them — falls back to OpenCV-only mode.
+# Note: torch download is ~160 MB on first run (cached afterwards).
+#
+torch
+torchvision

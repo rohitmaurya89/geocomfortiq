@@ -1,0 +1,529 @@
+{% extends "base/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+  <!-- ── Top Bar ──────────────────────────────────────────────────────────── -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-3">
+    <div>
+      <a href="{% url 'dashboard:home' %}" class="btn btn-sm gciq-btn-back me-2">
+        <i class="bi bi-arrow-left me-1"></i>New Analysis
+      </a>
+      <span class="text-muted small">
+        {{ result.city.display_name }} &nbsp;|&nbsp;
+        <i class="bi bi-geo-alt-fill text-success"></i> {{ result.start_location }}
+        <i class="bi bi-arrow-right mx-1"></i>
+        <i class="bi bi-geo-fill text-danger"></i> {{ result.end_location }}
+      </span>
+      {% if result.is_cached %}
+        <span class="badge bg-secondary ms-2"><i class="bi bi-lightning-fill me-1"></i>Cached</span>
+      {% endif %}
+    </div>
+    <div class="text-muted small">
+      <i class="bi bi-clock me-1"></i>{{ result.created_at|date:"d M Y, H:i" }}
+    </div>
+  </div>
+
+  <!-- ── Satellite Data Banner ─────────────────────────────────────────────── -->
+  {% if image_available %}
+  <div class="alert-banner alert-banner-success mb-3">
+    <i class="bi bi-satellite-fill me-1"></i>
+    <strong>Real Satellite Data Active</strong> —
+    {{ image_used }} (Bhoonidhi / Sentinel imagery)
+  </div>
+  {% else %}
+  <div class="alert-banner alert-banner-warning mb-3">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+    <strong>Satellite Image Not Available</strong> for {{ result.city.display_name }}.
+    Showing estimated dummy data.
+    Place Bhoonidhi image in <code>dataset/final_dataset/{{ result.city.slug }}_dataset/</code> and re-run.
+  </div>
+  {% endif %}
+
+  <!-- ── Comfort Score Hero ────────────────────────────────────────────────── -->
+  <div class="score-hero mb-4 risk-hero-{{ result.risk_category }}">
+    <div class="row align-items-center">
+
+      <!-- Score -->
+      <div class="col-md-3 text-center border-end-md py-3">
+        <div class="score-circle score-circle-{{ result.risk_category }}">
+          <span class="score-number">{{ result.comfort_score|floatformat:1 }}</span>
+          <span class="score-label">/ 100</span>
+        </div>
+        <div class="mt-2 fw-600">Comfort Score</div>
+      </div>
+
+      <!-- Risk -->
+      <div class="col-md-2 text-center border-end-md py-3">
+        <div class="risk-icon-lg">
+          {% if result.risk_category == 'safe' %}✅{% elif result.risk_category == 'moderate' %}⚠️{% else %}🚨{% endif %}
+        </div>
+        <div class="fw-600 mt-1">{{ result.get_risk_category_display }}</div>
+        <div class="text-muted small">Risk (KMeans)</div>
+      </div>
+
+      <!-- Live Environment -->
+      <div class="col-md-7 py-3 px-4">
+        <div class="live-env-title mb-2">
+          <i class="bi bi-cloud-sun me-1"></i>
+          <span class="fw-600 small">Live — {{ result.start_location }}</span>
+          <span class="badge ms-2 {% if weather.source == 'live' %}bg-success{% else %}bg-secondary{% endif %} badge-sm">
+            {{ weather.source|default:"MOCK"|upper }}
+          </span>
+        </div>
+        <div class="live-env-grid">
+          <div class="live-env-card">
+            <div class="live-env-label">🌫 AQI</div>
+            <div class="live-env-val {% if result.aqi < 100 %}val-good{% elif result.aqi < 200 %}val-warn{% else %}val-bad{% endif %}">
+              {{ result.aqi|floatformat:0|default:"—" }}
+            </div>
+            <div class="live-env-sub">{{ weather.aqi_label|default:"—" }}</div>
+          </div>
+          <div class="live-env-card">
+            <div class="live-env-label">🌡 Temp</div>
+            <div class="live-env-val">{{ result.temperature|floatformat:1|default:"—" }}°C</div>
+            <div class="live-env-sub">Feels {{ weather.feels_like|default:"—" }}°C</div>
+          </div>
+          <div class="live-env-card">
+            <div class="live-env-label">💧 Humidity</div>
+            <div class="live-env-val">{{ result.humidity|default:"—" }}%</div>
+            <div class="live-env-sub">{{ weather.weather_desc|default:"" }}</div>
+          </div>
+          <div class="live-env-card">
+            <div class="live-env-label">🌬 PM2.5</div>
+            <div class="live-env-val">{{ result.pm25|floatformat:1|default:"—" }}</div>
+            <div class="live-env-sub">µg/m³</div>
+          </div>
+          <div class="live-env-card">
+            <div class="live-env-label">💨 PM10</div>
+            <div class="live-env-val">{{ result.pm10|floatformat:1|default:"—" }}</div>
+            <div class="live-env-sub">µg/m³</div>
+          </div>
+          <div class="live-env-card">
+            <div class="live-env-label">🌬 Wind</div>
+            <div class="live-env-val">{{ weather.wind_speed|default:"—" }}</div>
+            <div class="live-env-sub">km/h</div>
+          </div>
+        </div>
+        {% if weather.travel_advice %}
+        <div class="travel-advice-banner mt-2">
+          <i class="bi bi-info-circle me-1"></i>{{ weather.travel_advice }}
+        </div>
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── KPI Cards ─────────────────────────────────────────────────────────── -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="kpi-card kpi-green">
+        <div class="kpi-icon"><i class="bi bi-tree-fill"></i></div>
+        <div class="kpi-value">{{ result.green_pct|floatformat:1 }}%</div>
+        <div class="kpi-label">Green Cover</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:{{ result.green_pct }}%"></div></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="kpi-card kpi-dust">
+        <div class="kpi-icon"><i class="bi bi-wind"></i></div>
+        <div class="kpi-value">{{ result.dust_pct|floatformat:1 }}%</div>
+        <div class="kpi-label">Dust / Open Land</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:{{ result.dust_pct }}%"></div></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="kpi-card kpi-builtup">
+        <div class="kpi-icon"><i class="bi bi-buildings-fill"></i></div>
+        <div class="kpi-value">{{ result.builtup_pct|floatformat:1 }}%</div>
+        <div class="kpi-label">Built-up</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:{{ result.builtup_pct }}%"></div></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="kpi-card kpi-shade">
+        <div class="kpi-icon"><i class="bi bi-cloud-sun-fill"></i></div>
+        <div class="kpi-value">{{ result.shade_pct|floatformat:1 }}%</div>
+        <div class="kpi-label">Shade / Shadow</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:{{ result.shade_pct }}%"></div></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="kpi-card kpi-congestion">
+        <div class="kpi-icon"><i class="bi bi-diagram-3-fill"></i></div>
+        <div class="kpi-value">{{ result.congestion_pct|floatformat:1 }}%</div>
+        <div class="kpi-label">Congestion</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:{{ result.congestion_pct }}%"></div></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="kpi-card kpi-water">
+        <div class="kpi-icon"><i class="bi bi-water"></i></div>
+        <div class="kpi-value">{{ result.water_pct|floatformat:1 }}%</div>
+        <div class="kpi-label">Water Body</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:{{ result.water_pct }}%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Charts Row ─────────────────────────────────────────────────────────── -->
+  <div class="row g-3 mb-4">
+    <!-- Pie Chart — SMALLER height:160 -->
+    <div class="col-md-4">
+      <div class="chart-card h-100">
+        <div class="chart-card-header">
+          <i class="bi bi-pie-chart-fill me-2"></i>Land Cover Distribution
+        </div>
+        <div class="chart-body">
+          <canvas id="pieChart" height="160"></canvas>
+        </div>
+      </div>
+    </div>
+    <!-- Bar Chart — SMALLER height:160 -->
+    <div class="col-md-8">
+      <div class="chart-card h-100">
+        <div class="chart-card-header">
+          <i class="bi bi-bar-chart-fill me-2"></i>Parameter Comparison
+        </div>
+        <div class="chart-body">
+          <canvas id="barChart" height="160"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Map Section ───────────────────────────────────────────────────────── -->
+  <div class="map-section mb-4">
+    <div class="map-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div>
+        <h5 class="mb-0"><i class="bi bi-map-fill me-2"></i>Optimized Route Map</h5>
+        <span class="text-muted small">Real road routing · CartoDB tiles</span>
+      </div>
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <div class="route-meta-pills" id="routePills" style="display:none;">
+          <span class="route-pill" id="routeDist"><i class="bi bi-signpost-split me-1"></i>— km</span>
+          <span class="route-pill" id="routeDur"><i class="bi bi-clock me-1"></i>— min</span>
+          <span class="route-pill" id="routeMethod"></span>
+          <span class="route-pill risk-pill-{{ result.risk_category }}">
+            {% if result.risk_category == 'safe' %}✅{% elif result.risk_category == 'moderate' %}⚠️{% else %}🚨{% endif %}
+            {{ result.get_risk_category_display }}
+          </span>
+        </div>
+        <button class="btn gciq-btn-map" id="showMapBtn" onclick="loadRouteMap()">
+          <i class="bi bi-map me-2"></i>Show Route Map
+        </button>
+      </div>
+    </div>
+
+    <div id="mapContainer" style="display:none;">
+      <div style="display:flex; height:460px;">
+        <div id="leafletMap" style="flex:1; border-radius:0 0 0 10px;"></div>
+        <div id="routeSteps" class="route-steps-panel"></div>
+      </div>
+    </div>
+
+    <div id="mapPlaceholderMsg" class="map-placeholder-msg">
+      <i class="bi bi-map display-4 text-muted"></i>
+      <p class="text-muted mt-2 mb-1">Click <strong>"Show Route Map"</strong> to load the optimized route.</p>
+      <p class="text-muted small">
+        {% if result.start_lat and result.end_lat %}
+          <i class="bi bi-check-circle text-success me-1"></i>Coordinates found — road route will be drawn.
+        {% else %}
+          <i class="bi bi-exclamation-circle text-warning me-1"></i>Coordinates not found — re-enter location names.
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  <!-- ── Analysis Metadata — COMPACT SINGLE ROW ────────────────────────────── -->
+  <div class="meta-card mb-4">
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+
+      <div class="meta-tag">
+        <i class="bi bi-camera-fill me-1"></i>
+        <span class="text-muted">Source:</span>
+        <strong class="ms-1">Satellite (ISRO/Sentinel)</strong>
+      </div>
+
+      <div class="meta-tag">
+        <i class="bi bi-cpu-fill me-1"></i>
+        <span class="text-muted">Engine:</span>
+        <strong class="ms-1">OpenCV + KMeans</strong>
+      </div>
+
+      <div class="meta-tag">
+        <i class="bi bi-robot me-1"></i>
+        <span class="text-muted">DL:</span>
+        {% if dl_available %}
+          <strong class="ms-1 text-success">DeepLabV3 ✅</strong>
+        {% else %}
+          <strong class="ms-1 text-warning">OpenCV only</strong>
+        {% endif %}
+      </div>
+
+      <div class="meta-tag">
+        <i class="bi bi-file-earmark-image me-1"></i>
+        <span class="text-muted">Image:</span>
+        {% if image_used %}
+          <strong class="ms-1 text-success">{{ image_used }} ✅</strong>
+        {% else %}
+          <strong class="ms-1 text-warning">Mock data</strong>
+        {% endif %}
+      </div>
+
+      <div class="meta-tag">
+        <i class="bi bi-cloud-fill me-1"></i>
+        <span class="text-muted">Weather:</span>
+        <strong class="ms-1">OpenWeatherMap</strong>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /container -->
+{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+/* Leaflet popup — light theme */
+.leaflet-control-attribution { font-size: 10px; }
+.leaflet-popup-content-wrapper {
+  background: #fff; color: #1a202c;
+  border: 1px solid #e2e8f0; border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.leaflet-popup-tip { background: #fff; }
+
+/* Route steps panel — light theme */
+.route-steps-panel {
+  width: 240px; flex-shrink: 0;
+  background: #f8fafc;
+  border-left: 1px solid #e2e8f0;
+  overflow-y: auto; padding: 0;
+  border-radius: 0 0 10px 0;
+}
+.route-step {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px 12px; border-bottom: 1px solid #e2e8f0;
+  font-size: 0.78rem; color: #1a202c;
+}
+.route-step:last-child { border-bottom: none; }
+.step-icon {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  background: #dbeafe; display: flex; align-items: center; justify-content: center;
+  font-size: 0.74rem; color: #2563eb; font-weight: 600;
+}
+.step-text { flex: 1; line-height: 1.4; }
+.step-meta { color: #94a3b8; font-size: 0.7rem; margin-top: 2px; }
+
+/* Compact meta tags */
+.meta-tag {
+  display: inline-flex;
+  align-items: center;
+  background: #f5f7fa;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 5px 11px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+/* Pulsing start marker animation */
+@keyframes pulse-ring {
+  0%   { transform: scale(1);   opacity: 1; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const chartData = {{ chart_data_json|safe }};
+const routeData = {{ route_json|safe }};
+const CITY_LAT  = {{ result.city.latitude }};
+const CITY_LON  = {{ result.city.longitude }};
+const START_LAT = {{ result.start_lat|default:"null" }};
+const START_LON = {{ result.start_lon|default:"null" }};
+const END_LAT   = {{ result.end_lat|default:"null" }};
+const END_LON   = {{ result.end_lon|default:"null" }};
+
+// ── Pie Chart ─────────────────────────────────────────────────────────────────
+new Chart(document.getElementById('pieChart').getContext('2d'), {
+  type: 'doughnut',
+  data: {
+    labels: chartData.labels,
+    datasets: [{
+      data: chartData.values,
+      backgroundColor: chartData.colors,
+      borderWidth: 2,
+      borderColor: '#ffffff',
+      hoverOffset: 6,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: { color: '#64748b', font: { size: 10 }, padding: 8 }
+      },
+      tooltip: {
+        callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed.toFixed(1)}%` }
+      }
+    }
+  }
+});
+
+// ── Bar Chart ─────────────────────────────────────────────────────────────────
+new Chart(document.getElementById('barChart').getContext('2d'), {
+  type: 'bar',
+  data: {
+    labels: chartData.labels,
+    datasets: [{
+      label: 'Coverage (%)',
+      data: chartData.values,
+      backgroundColor: chartData.colors,
+      borderRadius: 5,
+      borderSkipped: false,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y.toFixed(1)}%` } }
+    },
+    scales: {
+      x: {
+        ticks: { color: '#64748b', font: { size: 10 } },
+        grid:  { color: '#f1f5f9' }
+      },
+      y: {
+        beginAtZero: true,
+        max: 100,
+        ticks: { color: '#64748b', callback: v => v + '%' },
+        grid: { color: '#f1f5f9' }
+      }
+    }
+  }
+});
+
+// ── Route Map ─────────────────────────────────────────────────────────────────
+let mapInstance = null;
+
+function loadRouteMap() {
+  document.getElementById('mapContainer').style.display = 'block';
+  document.getElementById('mapPlaceholderMsg').style.display = 'none';
+  const btn = document.getElementById('showMapBtn');
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Loading…';
+  btn.disabled = true;
+
+  if (mapInstance) { setTimeout(() => mapInstance.invalidateSize(), 100); return; }
+
+  const centerLat = (START_LAT && END_LAT) ? (START_LAT + END_LAT) / 2 : CITY_LAT;
+  const centerLon = (START_LON && END_LON) ? (START_LON + END_LON) / 2 : CITY_LON;
+
+  mapInstance = L.map('leafletMap').setView([centerLat, centerLon], 13);
+
+  // CartoDB Voyager tiles — no "Access blocked" issue
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap © CARTO',
+    subdomains: 'abcd',
+    maxZoom: 19,
+  }).addTo(mapInstance);
+
+  if (routeData.found && routeData.coords.length > 0) {
+    const isStraight = routeData.method === 'straight';
+
+    // White border glow
+    L.polyline(routeData.coords, {
+      color: '#ffffff', weight: 9, opacity: 0.7,
+      dashArray: isStraight ? '10,12' : null,
+    }).addTo(mapInstance);
+
+    // Blue route line (Google Maps style)
+    const routeLine = L.polyline(routeData.coords, {
+      color: '#1a73e8',
+      weight: 6, opacity: 0.95,
+      lineCap: 'round', lineJoin: 'round',
+      dashArray: isStraight ? '10,12' : null,
+    }).addTo(mapInstance);
+
+    mapInstance.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+
+    if (routeData.distance) document.getElementById('routeDist').innerHTML = `<i class="bi bi-signpost-split me-1"></i>${routeData.distance} km`;
+    if (routeData.duration) document.getElementById('routeDur').innerHTML  = `<i class="bi bi-clock me-1"></i>${routeData.duration} min`;
+    const methodNames = { osrm: 'OSRM', ors: 'OpenRouteService', straight: 'Estimated' };
+    document.getElementById('routeMethod').textContent = methodNames[routeData.method] || routeData.method;
+    document.getElementById('routePills').style.display = 'flex';
+
+    _renderSteps(routeData.steps || []);
+  } else {
+    mapInstance.setView([CITY_LAT, CITY_LON], 13);
+  }
+
+  // Start marker — pulsing blue dot
+  if (START_LAT) {
+    const startIcon = L.divIcon({
+      html: `<div style="position:relative;width:20px;height:20px;">
+               <div style="position:absolute;inset:0;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3);z-index:2;"></div>
+               <div style="position:absolute;inset:-6px;border-radius:50%;background:rgba(26,115,232,0.25);animation:pulse-ring 1.5s infinite;"></div>
+             </div>`,
+      className: '', iconSize: [20, 20], iconAnchor: [10, 10],
+    });
+    L.marker([START_LAT, START_LON], { icon: startIcon })
+      .addTo(mapInstance)
+      .bindPopup(`<b>🟢 Start</b><br>{{ result.start_location }}`);
+  }
+
+  // End marker — red pin
+  if (END_LAT) {
+    const endIcon = L.divIcon({
+      html: `<div style="display:flex;flex-direction:column;align-items:center;">
+               <div style="width:24px;height:24px;border-radius:50% 50% 50% 0;background:#e53935;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);"></div>
+             </div>`,
+      className: '', iconSize: [24, 32], iconAnchor: [12, 32],
+    });
+    L.marker([END_LAT, END_LON], { icon: endIcon })
+      .addTo(mapInstance)
+      .bindPopup(`<b>🔴 Destination</b><br>{{ result.end_location }}<br>Score: {{ result.comfort_score|floatformat:1 }}/100`);
+  }
+
+  btn.innerHTML = '<i class="bi bi-map-fill me-2"></i>Map Loaded';
+  setTimeout(() => mapInstance.invalidateSize(), 300);
+}
+
+// ── Turn-by-turn steps ────────────────────────────────────────────────────────
+function _renderSteps(steps) {
+  const panel = document.getElementById('routeSteps');
+  if (!steps.length) {
+    panel.innerHTML = '<div style="padding:14px;color:#94a3b8;font-size:0.8rem;">No step data.</div>';
+    return;
+  }
+  const icons = { depart: '▶', arrive: '⚑', turn: '↩', straight: '↑', roundabout: '↻', default: '·' };
+  let html = `<div style="padding:8px 12px 6px;font-size:0.72rem;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;letter-spacing:0.5px;">
+    TURN-BY-TURN DIRECTIONS</div>`;
+
+  steps.forEach(step => {
+    const instr = step.instruction || 'Continue';
+    const key   = Object.keys(icons).find(k => instr.toLowerCase().includes(k)) || 'default';
+    const dist  = step.distance >= 1000
+      ? `${(step.distance / 1000).toFixed(1)} km`
+      : `${step.distance} m`;
+    html += `<div class="route-step">
+      <div class="step-icon">${icons[key]}</div>
+      <div class="step-text">
+        ${instr}
+        <div class="step-meta">${dist}${step.duration ? ' · ' + step.duration + ' min' : ''}</div>
+      </div>
+    </div>`;
+  });
+
+  panel.innerHTML = html;
+}
+</script>
+{% endblock %}

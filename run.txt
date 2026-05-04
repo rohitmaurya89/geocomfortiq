@@ -1,0 +1,13 @@
+pip install -r requirements.txt
+python manage.py makemigrations
+python manage.py migrate
+python manage.py runserver
+
+############################ How to create Vritual Environment ############
+step 1 : create -->     python -m venv vir_env_name
+step 2 : activate -->   myenv\Scripts\activate
+step 3 : verify(if acticated or not) --> (myenv) C:\Users\..., show like this .
+step 4 : deactivate --> deactivate myenv 
+step 4 : save to file  : --> pip freeze > requirements.txt
+         # create requirements.txt file ,and save all installed packages in it.
+step 5 : delete myenv --> rmdir /s /q myenv

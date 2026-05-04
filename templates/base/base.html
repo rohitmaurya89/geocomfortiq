@@ -1,0 +1,115 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}{{ page_title|default:"GeoComfortIQ" }}{% endblock %}</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="{% static 'css/main.css' %}" />
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- ── Navbar ─────────────────────────────────────────────────────────────── -->
+<nav class="navbar navbar-expand-lg gciq-navbar">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand gciq-brand" href="{% url 'dashboard:home' %}">
+      <span class="brand-icon">🛰️</span>
+      <span class="brand-text">Geo<span class="brand-accent">Comfort</span>IQ</span>
+    </a>
+
+    <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navMain">
+      <ul class="navbar-nav ms-auto align-items-center gap-1">
+        <li class="nav-item">
+          <a class="nav-link {% if request.resolver_match.url_name == 'home' %}active fw-600{% endif %}"
+             href="{% url 'dashboard:home' %}">
+            <i class="bi bi-house me-1"></i>Home
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/admin/" target="_blank">
+            <i class="bi bi-gear me-1"></i>Admin
+          </a>
+        </li>
+        <li class="nav-item ms-2">
+          <button class="btn gciq-btn-assistant" id="toggleAssistant">
+            <i class="bi bi-robot me-1"></i>AI Assistant
+          </button>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Main Layout ────────────────────────────────────────────────────────── -->
+<div class="gciq-layout" id="gciqLayout">
+  <main class="gciq-main" id="gciqMain">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- ── AI Assistant Panel ─────────────────────────────────────────────── -->
+  <aside class="gciq-assistant-panel" id="assistantPanel">
+    <div class="assistant-header">
+      <div class="assistant-title">
+        <div class="assistant-avatar">🤖</div>
+        <div>
+          <div class="fw-600" style="font-size:0.9rem;">GeoComfortIQ Assistant</div>
+          <div class="assistant-status"><span class="status-dot"></span>Online</div>
+        </div>
+      </div>
+      <button class="btn-close-panel" id="closeAssistant"><i class="bi bi-x-lg"></i></button>
+    </div>
+
+    <div class="assistant-messages" id="assistantMessages">
+      <div class="msg msg-bot">
+        <div class="msg-bubble">
+          👋 Hello! I'm your GeoComfortIQ Assistant.<br><br>
+          Ask me about:<br>
+          • <strong>Parameters</strong> — NDVI, AQI, Green Cover<br>
+          • <strong>Route safety</strong> — why this route?<br>
+          • <strong>Best travel times</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="assistant-quick-btns">
+      <button class="quick-btn" onclick="sendQuick('What is NDVI?')">What is NDVI?</button>
+      <button class="quick-btn" onclick="sendQuick('What is comfort score?')">Comfort Score</button>
+      <button class="quick-btn" onclick="sendQuick('Best time to travel?')">Best time?</button>
+      <button class="quick-btn" onclick="sendQuick('Why was this route chosen?')">Why this route?</button>
+    </div>
+
+    <div class="assistant-input-area">
+      <input type="text" class="assistant-input" id="assistantInput"
+             placeholder="Ask anything…" autocomplete="off" />
+      <button class="assistant-send" id="assistantSend">
+        <i class="bi bi-send-fill"></i>
+      </button>
+    </div>
+  </aside>
+</div>
+
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
+<footer class="gciq-footer">
+  <span>🛰️ GeoComfortIQ — Urban Outdoor Comfort Analysis System</span>
+  <span class="ms-3" style="color:#cbd5e1;font-size:0.72rem;">Satellite · OpenCV · KMeans · AI</span>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{% static 'js/assistant.js' %}"></script>
+<script src="{% static 'js/main.js' %}"></script>
+{% if result %}<script>window.GCIQ_RESULT_ID = {{ result.id }};</script>{% endif %}
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

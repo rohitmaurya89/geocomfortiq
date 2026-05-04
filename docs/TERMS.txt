@@ -1,0 +1,77 @@
+GeoComfortIQ — Key Terms & Definitions
+=======================================
+
+NDVI (Normalized Difference Vegetation Index)
+  Formula: (NIR - Red) / (NIR + Red)
+  Range: -1 to +1
+  Meaning: Measures live green vegetation. Above 0.3 = healthy vegetation.
+  Used in: Satellite band analysis (requires NIR band).
+
+NDBI (Normalized Difference Built-up Index)
+  Formula: (SWIR - NIR) / (SWIR + NIR)
+  Range: -1 to +1
+  Meaning: Highlights urban built-up areas. Higher = more concrete/rooftops.
+  Used in: Detecting urban heat islands.
+
+KMeans Clustering
+  Type: Unsupervised machine learning algorithm
+  How it works: Groups data points into K clusters by minimizing distance to cluster centers.
+  Used in: Classifying zones into Safe / Moderate / Risky based on comfort parameters.
+  K value in project: 3
+
+Comfort Score
+  Range: 0 to 100
+  Formula: Weighted sum of environmental parameters.
+  Weights: Stored in config/settings_config.py (tunable).
+  Interpretation: 70+ = Safe, 40-70 = Moderate, 0-40 = Risky.
+
+AQI (Air Quality Index)
+  Measures: Concentration of PM2.5, PM10, O3, NO2, SO2, CO.
+  Range: 0 to 500
+  Levels: Good (0-50), Moderate (51-100), Unhealthy (101-200), Hazardous (200+).
+  Source: OpenWeatherMap Air Pollution API.
+
+PM2.5
+  Fine particles ≤ 2.5 micrometers diameter.
+  Health impact: Penetrates deep into lungs. Major cause of respiratory disease.
+  Safe limit: < 12 µg/m³ (WHO), < 60 µg/m³ (India CPCB 24hr).
+
+PM10
+  Coarse particles ≤ 10 micrometers diameter.
+  Health impact: Irritates eyes, nose, throat.
+  Safe limit: < 45 µg/m³ (WHO), < 100 µg/m³ (India 24hr).
+
+OpenCV
+  Open Source Computer Vision Library.
+  Used in: Image loading, colour segmentation, edge detection (Canny).
+  Language: Python/C++.
+
+Pixel Segmentation
+  Technique: Classifying each pixel of an image into a category (green, dust, built-up, water, shadow).
+  Method used: HSV colour range thresholding + morphological operations.
+
+HSV Colour Space
+  Hue-Saturation-Value. Better than RGB for colour segmentation.
+  Green vegetation: Hue ~36-86, Saturation >40, Value >40.
+
+Edge Density
+  Canny edge detection output / total pixels.
+  Used as proxy for structural congestion (more edges = denser built-up area).
+
+Nominatim
+  Free geocoding service by OpenStreetMap.
+  Converts place name → (latitude, longitude).
+  No API key needed. Rate limit: 1 request/second.
+
+Satellite Image Sources
+  ISRO Bhuvan: bhuvan.nrsc.gov.in (Indian Satellite data)
+  Sentinel Hub: sentinelhub.com (ESA Sentinel-2 data, 10m resolution)
+  Copernicus: Browser-based access to Sentinel datasets.
+
+Django
+  Python web framework following MVT pattern (Model-View-Template).
+  Used for: URL routing, database ORM, templating, admin interface.
+
+SQLite
+  Serverless, file-based relational database.
+  Used in: Development. Can be swapped to PostgreSQL for production.

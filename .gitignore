@@ -1,0 +1,9 @@
+myenv/
+.env
+db.sqlite3
+__pycache__/
+*.pyc
+staticfiles/
+*.zip
+dataset/
+.env.example

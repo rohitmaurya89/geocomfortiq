@@ -1,0 +1,168 @@
+GeoComfortIQ — Viva Preparation Notes (All 8 Phases)
+=====================================================
+
+── PHASE 1: Project Setup ────────────────────────────────────────────────────
+
+Q: What is GeoComfortIQ?
+A: A satellite-image-based Urban Outdoor Comfort Analysis System built with Django.
+   It helps citizens (elderly, children, outdoor workers) choose safer outdoor
+   routes by analysing green cover, dust, shade, built-up area, and congestion.
+
+Q: What inputs does the user give?
+A: Only three: (1) city dropdown, (2) start location name, (3) end location name.
+   The user never uploads satellite data — images are pre-loaded by the developer.
+
+Q: What database is used and why?
+A: SQLite for development — serverless, no setup needed, file-based.
+   Can be switched to PostgreSQL by changing one line in settings.py.
+
+Q: How is caching implemented?
+A: Before running analysis, views.py checks the DB for the same city+route
+   within the last 1 hour. If found, cached result is returned instantly.
+
+── PHASE 2: OpenCV Parameter Extraction ──────────────────────────────────────
+
+Q: How is Green Cover % extracted?
+A: Image is converted from BGR to HSV. Two HSV ranges are masked:
+   light green (Hue 35–85) for crops/grass, dark green (Hue 86–100) for forest.
+   Morphological close+open operations remove noise.
+   Green pixels / total pixels × 100 = Green Cover %.
+
+Q: How is Dust/Open Land % extracted?
+A: Sandy and dry soil tones in HSV (Hue 10–35, low-medium saturation) are masked.
+   Targets bare earth, construction sites, dry riverbeds.
+
+Q: How is Built-up % extracted?
+A: Grey/concrete tones (low saturation, medium-high brightness in HSV) are masked.
+   Also catches bright white rooftops.
+
+Q: How is Shade % extracted?
+A: Pixels with very low Value (brightness) in HSV are classified as shadow.
+   Water pixels (blue-dominant channel) are excluded to avoid false positives.
+
+Q: How is Congestion % extracted?
+A: Canny edge detection on greyscale image. Edge pixel count / total pixels
+   = raw density. Multiplied by 4 and clamped to 100 to get congestion %.
+   More edges per unit area = denser built-up structures = higher congestion.
+
+Q: Why HSV instead of RGB for colour detection?
+A: HSV separates Hue (colour) from Value (brightness), making detection robust
+   to lighting changes in satellite imagery — vegetation can appear light or
+   dark green depending on sun angle.
+
+── PHASE 3: Comfort Score + KMeans ───────────────────────────────────────────
+
+Q: What is the Comfort Score formula?
+A: score = 50 + Σ(weight_i × (param_i − 50))
+   Centred at 50 so an average city scores 50. Clamped to [0, 100].
+   Weights are in config/settings_config.py:
+     green +0.30, shade +0.20, dust -0.20, builtup -0.15, congestion -0.15
+
+Q: What are the risk thresholds?
+A: Safe: 70–100 | Moderate: 40–70 | Risky: 0–40
+
+Q: How does KMeans work here?
+A: K=3 clusters, random_state=42. We add 6 anchor points (2 per category)
+   so KMeans always produces stable Safe/Moderate/Risky clusters even for
+   a single input. Cluster labels are mapped by sorting centroids on a
+   "comfort axis" (green+shade − dust−builtup−congestion). KMeans result
+   is primary; score threshold is a secondary sanity check.
+
+Q: Why KMeans instead of a supervised classifier?
+A: We have no labelled training data for Indian city zones. KMeans is
+   unsupervised — it groups by similarity without needing labels.
+
+── PHASE 4: Live AQI & Weather ────────────────────────────────────────────────
+
+Q: What live data is fetched?
+A: From OpenWeatherMap free API:
+   Temperature, humidity, feels-like, wind speed, weather description,
+   AQI (index mapped to 0–500 scale), PM2.5, PM10, NO2, O3.
+
+Q: What happens if the API key is missing?
+A: weather_service.py falls back to city-specific mock profiles (8 cities).
+   Each city has realistic ranges — e.g. Delhi AQI 180–350, Bengaluru 60–110.
+
+Q: How is API overuse prevented?
+A: In-memory cache (_CACHE dict) with 1-hour TTL. Same city coordinates
+   within 1 hour return the cached result without calling the API.
+
+── PHASE 5: Route Map ─────────────────────────────────────────────────────────
+
+Q: How is geocoding done?
+A: Nominatim (OpenStreetMap). Place name + city name + "India" is sent to
+   the API which returns (lat, lon). Free, no API key required.
+
+Q: How is the route drawn?
+A: OSRM (Open Source Routing Machine) free API returns the actual road route
+   geometry as GeoJSON coordinates. Leaflet.js draws a polyline on a
+   dark CartoDB tile layer. Route colour = green/amber/red by risk category.
+
+Q: Why does the map only load on button click?
+A: To save bandwidth and improve page load speed. Leaflet + tiles are only
+   downloaded when the user explicitly requests the map.
+
+Q: What if geocoding fails?
+A: start_lat/lon are stored as NULL in DB. The map shows city-centre view
+   instead of a route — no crash, graceful degradation.
+
+── PHASE 6: Deep Learning ─────────────────────────────────────────────────────
+
+Q: Which deep learning model is used?
+A: DeepLabV3 with ResNet-50 backbone from torchvision.
+   Pretrained on Pascal VOC (21 classes). No training was done by us.
+
+Q: How are VOC classes mapped to comfort parameters?
+A: A lookup table in dl_segmenter.py maps each VOC class index to one of:
+   green, builtup, water, or None (skip). Output is pixel-count percentages.
+
+Q: How are DL and OpenCV results combined?
+A: Weighted blend: Final = 0.6 × OpenCV + 0.4 × DL
+   Only green_pct, builtup_pct, water_pct are refined by DL.
+   dust_pct, shade_pct, congestion_pct remain from OpenCV (DL cannot detect these).
+
+Q: What if PyTorch is not installed?
+A: run_dl_segmentation() returns None. blend_with_opencv() returns OpenCV
+   values unchanged. The app shows "OpenCV only ⚠️" in the metadata card.
+   Zero crash — fully graceful fallback.
+
+── PHASE 7: AI Assistant ──────────────────────────────────────────────────────
+
+Q: Which AI model powers the assistant?
+A: Anthropic Claude (claude-sonnet-4-20250514). Called via REST API.
+
+Q: What context does Claude receive?
+A: A system prompt containing: city name, route, comfort score, all 5 parameters,
+   AQI, temperature, humidity, risk category, and DL availability.
+   This allows Claude to answer specific questions about the current analysis.
+
+Q: How is multi-turn conversation handled?
+A: assistant.js maintains a history array. Last 6 turns are sent with each
+   request to maintain context within Claude's context window efficiently.
+
+Q: What if the Anthropic API key is not set?
+A: _try_claude_api() returns None. _rule_based_reply() is called instead —
+   a comprehensive keyword-matching fallback covering all major questions.
+   The source badge shows "⚙ Local" vs "✦ Claude AI" in the UI.
+
+── PHASE 8: Deployment ────────────────────────────────────────────────────────
+
+Q: How do you run the project locally?
+A: python setup.py   (one-time setup)
+   python manage.py runserver
+   Open http://127.0.0.1:8000
+
+Q: How many total files does the project have?
+A: 45 files — intentionally kept minimal and manageable.
+
+Q: What are the mandatory Python packages?
+A: Django, Pillow, numpy, opencv-python, scikit-learn, requests.
+   torch + torchvision are optional (for DL Phase 6).
+
+Q: How would you deploy to production?
+A: 1. Set DEBUG=False in settings.py
+   2. Set a strong SECRET_KEY
+   3. Switch DB to PostgreSQL (change DATABASES in settings.py)
+   4. Run: python manage.py collectstatic
+   5. Use gunicorn + nginx as the WSGI server
+   6. Set all API keys as environment variables (never hardcode)
